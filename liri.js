@@ -2,24 +2,19 @@ require('dotenv').config();
 var keys = require('./keys');
 var Spotify = require('node-spotify-api');
 var NewsAPI = require('newsapi');
-// var twitter = require('twitter');
 var request = require('request');
-// var omdb = require('omdb');
 var fs = require('fs');
-var userChoice = process.argv[2];
-var choice;
 var spotify = new Spotify(keys.spotify);
 var newsapi = new NewsAPI(keys.newsAPI.apikey);
-var omdb = new NewsAPI(keys.omdb.apikey);
 
 
-var userChoice = function (choice) {
+var userChoice = function (choice, data) {
     switch (choice) {
         case 'my-news':
             showHeadlines();
             break;
         case 'spotify-this-song':
-            spotifyThisSong();
+            spotifyThisSong(data);
             break;
         case 'movie-this':
             getMovie(data);
@@ -34,50 +29,59 @@ var userChoice = function (choice) {
     }
 }
 
-function getMovie() {
-    omdb.search('saw', function(err, movies) {
-        if(err) {
-            return console.error(err);
+function getMovie(movieName) {
+    request(`http://www.omdbapi.com/?t=${movieName}&r=json&apikey=trilogy`, function (error, response, body) {
+        if (error) {
+            console.log(error);
         }
-     
-        if(movies.length < 1) {
-            return console.log('No movies were found!');
-        }
-     
-        movies.forEach(function(movie) {
-            console.log('%s (%d)', movie.title, movie.year);
-        });
-     
-        // Saw (2004)
-        // Saw II (2005)
-        // Saw III (2006)
-        // Saw IV (2007)
-        // ...
-    });
+
+        if (!movieName) movieName = "Mr. Nobody";
+
+        var movieData = JSON.parse(body);
+        console.log('Title: ' + movieData.Title);
+        console.log('Year: ' + movieData.Year);
+        console.log('IMDB Rating: ' + movieData.Ratings[0].Value);
+        console.log('Rotten Tomatoes Rating: ' + movieData.Ratings[1].Value);
+        console.log('Country: ' + movieData.Country);
+        console.log('Language: ' + movieData.Language);
+        console.log('Plot: ' + movieData.Plot);
+        console.log('Actors: ' + movieData.Actors);
+    })
 };
 
-getMovie();
 
-
+function doThis() {
+    fs.readFile('random.txt', 'utf8', function (err, data) {
+        if (err) {
+            console.log(err)
+        }
+        var dataArr = data.split(',');
+        userChoice(dataArr[0], dataArr[1])
+    })
+}
 
 function showHeadlines() {
     newsapi.v2.topHeadlines({
-        // q: 'trump',
-        category: 'sports',
+        category: 'general',
         country: 'us',
-        pageSize: 1
+        pageSize: 20
     }).then(response => {
-        console.log(response);
-        /*
-          {
-            status: "ok",
-            articles: [...]
-          }
-        */
+        var count = 1;
+        for (let i = 0; i < 20; i++) {
+            console.log("--------------------" + "Article " + count + "--------------------")
+            console.log("Author: " + response.articles[i].author);
+            console.log("Publish Date: " + response.articles[i].publishedAt);
+            console.log("Article Link: " + response.articles[i].url + "\n" + "\n");
+            count++;
+        }
+
     });
 }
 
 function spotifyThisSong(songTitle) {
+    if (songTitle === "") {
+        songTitle = "The Sign Ace of Base"
+    }
     spotify.search({
         type: 'track',
         query: songTitle,
@@ -86,6 +90,15 @@ function spotifyThisSong(songTitle) {
         if (err) {
             return console.log('Error occurred: ' + err);
         }
-        console.log(data.tracks.items[0].artists[0].name);
+        console.log("Artist: " + data.tracks.items[0].artists[0].name);
+        console.log("Song Name: " + data.tracks.items[0].name);
+        console.log("Preview Link: " + data.tracks.items[0].preview_url);
+        console.log("Album: " + data.tracks.items[0].album.name);
     });
 }
+
+var run = function (argOne, argTwo) {
+    userChoice(argOne, argTwo);
+};
+
+run(process.argv[2], process.argv[3]);
